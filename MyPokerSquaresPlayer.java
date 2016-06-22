@@ -1,10 +1,10 @@
 import java.util.HashMap;
 
 /**
- * JM_NS_PokerSquaresPlayer - a simple, baseline implementation of the player interface for PokerSquares.
+ * MyPokerSquaresPlayer - a simple, baseline implementation of the player interface for PokerSquares.
  * For each possible play, we set up flushes while prioritizing rank points (pairs, three of a kind, four of a kind)
  *
- * Authors: Jonathan Murray and Nicole Stewart
+ * Authors: Jonathan Murray
  */
 public class MyPokerSquaresPlayer implements PokerSquaresPlayer {
 	
@@ -274,18 +274,18 @@ public class MyPokerSquaresPlayer implements PokerSquaresPlayer {
 	 */
 	@Override
 	public String getName() {
-		return "JM_NS_PokerSquaresPlayer";
+		return "MyPokerSquaresPlayer";
 	}
 
 	/*
-	 * Demonstrate JM_NS_PokerSquaresPlayer with American point system.
+	 * Demonstrate MyPokerSquaresPlayer with American point system.
 	 */
 	public static void main(String[] args) {
 		final long startTime = System.currentTimeMillis(); //start time
 		PokerSquaresPointSystem system = PokerSquaresPointSystem.getAmericanPointSystem();
 		System.out.println(system);
-		for (int i=0; i<1000; i++) {
-			new PokerSquares(new JM_NS_PokerSquaresPlayer(), system).play(); // play a single game
+		for (int i=0; i<1000; i++) { //simulate 1000 games
+			new PokerSquares(new MyPokerSquaresPlayer(), system).play(); // play a single game
 		}
 		System.out.println(System.currentTimeMillis() - startTime + "ms"); //print time
 	}
