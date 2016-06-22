@@ -6,7 +6,7 @@ import java.util.HashMap;
  *
  * Authors: Jonathan Murray and Nicole Stewart
  */
-public class JM_NS_PokerSquaresPlayer implements PokerSquaresPlayer {
+public class MyPokerSquaresPlayer implements PokerSquaresPlayer {
 	
 	private final int SIZE = 5; // number of rows/columns in square grid
 	private final int NUM_POS = SIZE * SIZE; // number of positions in square grid
