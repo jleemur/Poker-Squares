@@ -1,59 +1,28 @@
-import java.util.ArrayList;
 import java.util.HashMap;
 
 /**
- * GreedyMCPlayer - a simple, greedy Monte Carlo implementation of the player interface for PokerSquares.
- * For each possible play, continues greedy play with random possible card draws to a given depth limit 
- * (or game end).  Having sampled trajectories for all possible plays, the GreedyMCPlayer then selects the
- * play yielding the best average scoring potential in such Monte Carlo simulation.
+ * JM_NS_PokerSquaresPlayer - a simple, baseline implementation of the player interface for PokerSquares.
+ * For each possible play, we set up flushes while prioritizing rank points (pairs, three of a kind, four of a kind)
  *
  * Authors: Jonathan Murray and Nicole Stewart
  */
-public class MyPokerSquaresPlayer implements PokerSquaresPlayer {
+public class JM_NS_PokerSquaresPlayer implements PokerSquaresPlayer {
 	
 	private final int SIZE = 5; // number of rows/columns in square grid
 	private final int NUM_POS = SIZE * SIZE; // number of positions in square grid
 	private final int NUM_CARDS = Card.NUM_CARDS; // number of cards in deck
-	private int[] plays = new int[NUM_POS]; // positions of plays so far (index 0 through numPlays - 1) recorded as integers using row-major indices.
-	// row-major indices: play (r, c) is recorded as a single integer r * SIZE + c (See http://en.wikipedia.org/wiki/Row-major_order)
-	// From plays index [numPlays] onward, we maintain a list of yet unplayed positions.
-	private int numPlays = 0; // number of Cards played into the grid so far
+	//private int numPlays = 0; // number of Cards played into the grid so far
+	private boolean[][] legalMove = new boolean[SIZE][SIZE]; //true = valid move, false = invalid move
 	private PokerSquaresPointSystem system; // point system
 	private Card[][] grid = new Card[SIZE][SIZE]; // grid with Card objects or null (for empty positions)
-	private HashMap<String, Integer> cardsLeft = new HashMap<String, Integer>(); //list of all cards remaining. This list will be pretty detailed.
-																				 //# suits, # values, all remaining cards
+	private int[] columnCounter = new int[5]; //grid counters for each column
 
 	/*
 	 * Create our Poker Squares player.
-	 * Generate HashMap cardsLeft with base values.
+	 * Generate HashMap availableCards with base values.
 	 */
-	public MyPokerSquaresPlayer() {
+	public JM_NS_PokerSquaresPlayer() {
 		Card[] completeDeck = Card.getAllCards(); //array with all cards in deck
-
-		//suits
-		cardsLeft.put("hearts", 13);
-		cardsLeft.put("diamonds", 13);
-		cardsLeft.put("clubs", 13);
-		cardsLeft.put("spades", 13);
-		//values
-		cardsLeft.put("A", 4);
-		cardsLeft.put("2", 4);
-		cardsLeft.put("3", 4);
-		cardsLeft.put("4", 4);
-		cardsLeft.put("5", 4);
-		cardsLeft.put("6", 4);
-		cardsLeft.put("7", 4);
-		cardsLeft.put("8", 4);
-		cardsLeft.put("9", 4);
-		cardsLeft.put("T", 4);
-		cardsLeft.put("J", 4);
-		cardsLeft.put("Q", 4);
-		cardsLeft.put("K", 4);
-		//all remaining
-		for (int i=0; i<completeDeck.length; i++)
-		{
-			cardsLeft.put(String.valueOf(completeDeck[i]), 1);
-		}
 	}
 
 	/*
@@ -61,15 +30,20 @@ public class MyPokerSquaresPlayer implements PokerSquaresPlayer {
 	 */
 	@Override
 	public void init() { 
-		// clear grid
-		for (int row = 0; row < SIZE; row++)
-			for (int col = 0; col < SIZE; col++)
+		// clear grid, set legalMove table to true
+		for (int row = 0; row < SIZE; row++) {
+			for (int col = 0; col < SIZE; col++) {
 				grid[row][col] = null;
-		// reset numPlays
-		numPlays = 0;
-		// (re)initialize list of play positions (row-major ordering)
-		for (int i = 0; i < NUM_POS; i++)
-			plays[i] = i;
+				legalMove[row][col] = true;
+			}
+		}
+
+		/*
+		 * reset column counters
+		 * [0] = clubs ; [1] = diamonds ; [2] = hearts ; [3] = spades ; [4] = wild
+		 */
+		for (int i=0; i<5; i++)
+			columnCounter[i] = 0;
 	}
 
 	/*
@@ -77,75 +51,220 @@ public class MyPokerSquaresPlayer implements PokerSquaresPlayer {
 	 */
 	@Override
 	public int[] getPlay(Card card, long millisRemaining) {
-		int[] playPos = {};
-
-		//calculateTemporaryPoints with every possible grid configuration for new card
-		//keep highest point configuration, use that move! 
+		int[] playPos = boardPlacement(card);
 
 		return playPos;
 	}
 
 	/*
-	 * Arg: Grid with a new card placed.
-	 * Returns: Average potential points based on probabilties. 
+	 * Find best play on current board
 	 */
-	public double calculateTemporaryPoints(Card[][] grid) {
-		double tempPoints = 0;
+	public int[] boardPlacement(Card card)
+	{
+		int[] playPos = new int[2];
+		int cardRank = card.getRank(); //A..K = 0..12
+		int cardSuit = card.getSuit(); //0=C 1=D 2=H 3=S
+		int bestRow = -1; //bestRow will be a row index with most potential
+		int bestPoints = -1; //bestPoints will be the highest points
 
-		for (int r=0; r<SIZE; r++)
-		{
-			tempPoints += potentialPoints(); //add probability of current row here
+		//clubs
+		if (cardSuit == 0 && columnCounter[0] <= 4) {
+			playPos[1] = 0;
+			
+			//find best move
+			for (int row = 0; row < SIZE; row++) {
+				if (legalMove[row][0] == true)
+				{
+					int temp = highestPotentialPoints(card, row, 0);
+					if (bestPoints < temp) {
+						bestPoints = temp;
+						bestRow = row;
+					}
+				}
+			}
+			columnCounter[0]++;
+			legalMove[bestRow][0] = false;
+			playPos[0] = bestRow;
+			grid[playPos[0]][playPos[1]] = card;
 		}
-		for (int c=0; c<SIZE; c++)
+		//diamonds
+		else if (cardSuit == 1 && columnCounter[1] <= 4) {
+			playPos[1] = 1;
+
+			//find best move
+			for (int row = 0; row < SIZE; row++) {
+				if (legalMove[row][1] == true)
+				{
+					int temp = highestPotentialPoints(card, row, 1);
+					if (bestPoints < temp) {
+						bestPoints = temp;
+						bestRow = row;
+					}
+				}
+			}
+			columnCounter[1]++;
+			legalMove[bestRow][1] = false;
+			playPos[0] = bestRow;
+			grid[playPos[0]][playPos[1]] = card;
+		}
+		//hearts
+		else if (cardSuit == 2 && columnCounter[2] <= 4) {
+			playPos[1] = 2;
+
+			//find best move
+			for (int row = 0; row < SIZE; row++) {
+				if (legalMove[row][2] == true)
+				{
+					int temp = highestPotentialPoints(card, row, 2);
+					if (bestPoints < temp) {
+						bestPoints = temp;
+						bestRow = row;
+					}
+				}
+			}
+			columnCounter[2]++;
+			legalMove[bestRow][2] = false;
+			playPos[0] = bestRow;
+			grid[playPos[0]][playPos[1]] = card;
+		}	
+		//spades
+		else if (cardSuit == 3 && columnCounter[3] <= 4) {
+			playPos[1] = 3;
+
+			//find best move
+			for (int row = 0; row < SIZE; row++) {
+				if (legalMove[row][3] == true)
+				{
+					int temp = highestPotentialPoints(card, row, 3);
+					if (bestPoints < temp) {
+						bestPoints = temp;
+						bestRow = row;
+					}
+				}
+			}
+			columnCounter[3]++;
+			legalMove[bestRow][3] = false;
+			playPos[0] = bestRow;
+			grid[playPos[0]][playPos[1]] = card;
+		}
+		//wild
+		else if (columnCounter[4] <= 4) {
+			playPos[1] = 4;
+
+			//find best move
+			for (int row = 0; row < SIZE; row++) {
+				if (legalMove[row][4] == true)
+				{
+					int temp = highestPotentialPoints(card, row, 4);
+					if (bestPoints < temp) {
+						bestPoints = temp;
+						bestRow = row;
+					}
+				}
+			}
+			columnCounter[4]++;
+			legalMove[bestRow][4] = false;
+			playPos[0] = bestRow;
+			grid[playPos[0]][playPos[1]] = card;
+		}
+		else
 		{
-			tempPoints += potentialPoints(); //add probability of current column here
+			//EMERGENCY PUT IT ANYWHERE
+			for (int col=0; col < SIZE; col++) {
+				for (int row=0; row < SIZE; row++) {
+					if (legalMove[row][col] == true)
+					{
+						playPos[0] = row;
+						playPos[1] = col;
+						legalMove[row][col] = false;
+						grid[playPos[0]][playPos[1]] = card;
+						columnCounter[playPos[1]]++;
+
+						return playPos;
+					}
+				}
+			}
 		}
 
-		return tempPoints;
+		return playPos;
 	}
+
 	/*
-	 * Arg: Current cards on line
-	 * Returns: Probability of all potential results added together
+	 * Return potential points, compare with other placements... choose highest
+	 * Interference = 0
+	 * No Interference = 1
+	 * Pair = 2
+	 * Three of a Kind = 3
+	 * Four of a Kind = 4
 	 */
-	public double potentialPoints() {
-		double currentPoints = 0.0; //points of current equation
-		double points = 0.0; //overall points of configuration
+	public int highestPotentialPoints(Card card, int row, int col)
+	{
+		int pointCode = 1;
 
-		//pair
-		//TODO:
+		try {
+			//check for interference 
+			int interference = 0;
+			for (int i=0; i<SIZE; i++)
+			{
+				if (i==col) {} //do nothing
+	 			else {
+	 				if (grid[row][i] != null && grid[row][i].getRank() != card.getRank()) 
+	 					pointCode = 0;
+				}
+			}
+			//check for pair 
+			for (int i=0; i<SIZE; i++)
+			{
+				if (i==col) {} //do nothing
+	 			else {
+	 				if (grid[row][i].getRank() == card.getRank()) {
+	 					pointCode = 2;
+	 					break;
+	 				}
+				}
+			}
+			//check for three of a kind 
+			int threeofakind = 0;
+			for (int i=0; i<SIZE; i++)
+			{
+				if (i==col) {} //do nothing
+	 			else {
+	 				if (grid[row][i].getRank() == card.getRank()) {
+	 				 	threeofakind++;
+	 				}
 
-		//two pair
-		//TODO:
+	 				if (threeofakind == 3) {
+	 					pointCode = 4;
+	 					break;
+	 				}
+				}
+			}
+			//check for four of a kind 
+			int fourofakind = 0;
+			for (int i=0; i<SIZE; i++)
+			{
+				if (i==col) {} //do nothing
+	 			else {
+	 				if (grid[row][i].getRank() == card.getRank()) {
+	 				 	fourofakind++;
+	 				}
 
-		//three of a kind
-		//TODO:
+	 				if (fourofakind == 4) {
+	 					pointCode = 5;
+	 					break;
+	 				}
+				}
+			}
+		} catch (NullPointerException e) {};
 
-		//straight
-		//TODO:
-
-		//flush
-		//TODO:
-
-		//full house
-		//TODO:
-
-		//four of a kind
-		//TODO:
-
-		//straight flush
-		//TODO:
-
-		//royal flush
-		//TODO:
-
-
-		return points;
+		return pointCode;
 	}
+
 
 	/*
 	 * @see PokerSquaresPlayer#setPointSystem(PokerSquaresPointSystem, long)
 	 */
-	@Override
+	@Override  
 	public void setPointSystem(PokerSquaresPointSystem system, long millis) {
 		this.system = system;
 	}
@@ -155,16 +274,20 @@ public class MyPokerSquaresPlayer implements PokerSquaresPlayer {
 	 */
 	@Override
 	public String getName() {
-		return "MyPokerSquaresPlayer";
+		return "JM_NS_PokerSquaresPlayer";
 	}
 
 	/*
-	 * Demonstrate MyPokerSquaresPlayer with American point system.
+	 * Demonstrate JM_NS_PokerSquaresPlayer with American point system.
 	 */
 	public static void main(String[] args) {
+		final long startTime = System.currentTimeMillis(); //start time
 		PokerSquaresPointSystem system = PokerSquaresPointSystem.getAmericanPointSystem();
 		System.out.println(system);
-		new PokerSquares(new MyPokerSquaresPlayer(), system).play(); // play a single game
+		for (int i=0; i<1000; i++) {
+			new PokerSquares(new JM_NS_PokerSquaresPlayer(), system).play(); // play a single game
+		}
+		System.out.println(System.currentTimeMillis() - startTime + "ms"); //print time
 	}
 
 }
